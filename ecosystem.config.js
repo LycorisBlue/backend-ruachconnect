@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'ruachconnect-api',
-      script: './src/server.js',
+      script: './bin/www',
       instances: 1,
       exec_mode: 'fork',
       env: {
