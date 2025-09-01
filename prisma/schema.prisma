@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Énums
+enum UserRole {
+  can_committee
+  mentor
+  pastor
+  admin
+}
+
+enum Gender {
+  M
+  F
+}
+
+enum MaritalStatus {
+  single
+  married
+  divorced
+  widowed
+}
+
+enum PersonStatus {
+  to_visit
+  in_follow_up
+  integrated
+  to_redirect
+  long_absent
+}
+
+enum InteractionType {
+  visit
+  call
+  meeting
+  other
+}
+
+enum Outcome {
+  positive
+  neutral
+  negative
+  no_contact
+}
+
+enum NotificationType {
+  new_assignment
+  follow_up_reminder
+  overdue_visit
+  status_change
+}
+
+// Tables
+model User {
+  id            String   @id @default(uuid()) @db.Char(36)
+  email         String   @unique @db.VarChar(255)
+  passwordHash  String   @map("password_hash") @db.VarChar(255)
+  firstName     String   @map("first_name") @db.VarChar(100)
+  lastName      String   @map("last_name") @db.VarChar(100)
+  phone         String?  @db.VarChar(20)
+  role          UserRole
+  churchSection String?  @map("church_section") @db.VarChar(100)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdPersons  Person[]     @relation("CreatedBy")
+  assignedPersons Person[]     @relation("AssignedMentor")
+  followUps       FollowUp[]
+  notifications   Notification[]
+  settingsUpdates Setting[]
+
+  @@map("users")
+}
+
+model Person {
+  id                   String         @id @default(uuid()) @db.Char(36)
+  firstName            String         @map("first_name") @db.VarChar(100)
+  lastName             String         @map("last_name") @db.VarChar(100)
+  gender               Gender
+  dateOfBirth          DateTime?      @map("date_of_birth") @db.Date
+  phone                String?        @db.VarChar(20)
+  email                String?        @db.VarChar(255)
+  address              String?        @db.Text
+  commune              String?        @db.VarChar(100)
+  quartier             String?        @db.VarChar(100)
+  profession           String?        @db.VarChar(100)
+  maritalStatus        MaritalStatus? @map("marital_status")
+  firstVisitDate       DateTime       @map("first_visit_date") @db.Date
+  howHeardAboutChurch  String?        @map("how_heard_about_church") @db.Text
+  prayerRequests       String?        @map("prayer_requests") @db.Text
+  photoUrl             String?        @map("photo_url") @db.VarChar(255)
+  status               PersonStatus   @default(to_visit)
+  assignedMentorId     String?        @map("assigned_mentor_id") @db.Char(36)
+  createdBy            String         @map("created_by") @db.Char(36)
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  assignedMentor User?          @relation("AssignedMentor", fields: [assignedMentorId], references: [id])
+  creator        User           @relation("CreatedBy", fields: [createdBy], references: [id])
+  followUps      FollowUp[]
+  notifications  Notification[]
+
+  @@map("persons")
+}
+
+model FollowUp {
+  id               String          @id @default(uuid()) @db.Char(36)
+  personId         String          @map("person_id") @db.Char(36)
+  mentorId         String          @map("mentor_id") @db.Char(36)
+  interactionType  InteractionType @map("interaction_type")
+  interactionDate  DateTime        @map("interaction_date") @db.Date
+  notes            String?         @db.Text
+  outcome          Outcome
+  nextActionNeeded Boolean         @default(false) @map("next_action_needed")
+  nextActionDate   DateTime?       @map("next_action_date") @db.Date
+  nextActionNotes  String?         @map("next_action_notes") @db.Text
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  mentor User   @relation(fields: [mentorId], references: [id])
+
+  @@map("follow_ups")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Char(36)
+  userId    String           @map("user_id") @db.Char(36)
+  personId  String?          @map("person_id") @db.Char(36)
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String           @db.Text
+  isRead    Boolean          @default(false) @map("is_read")
+  actionUrl String?          @map("action_url") @db.VarChar(255)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Setting {
+  id          String   @id @default(uuid()) @db.Char(36)
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedBy   String?  @map("updated_by") @db.Char(36)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@map("settings")
+}
